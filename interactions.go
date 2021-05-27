@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -63,17 +64,22 @@ type InteractionType uint8
 
 // Interaction types
 const (
-	InteractionPing = InteractionType(iota + 1)
+	InteractionPing InteractionType = iota + 1
 	InteractionApplicationCommand
+	InteractionMessageComponent
 )
 
-// Interaction represents an interaction event created via a slash command.
+// Interaction represents data of an interaction.
 type Interaction struct {
-	ID        string                            `json:"id"`
-	Type      InteractionType                   `json:"type"`
-	Data      ApplicationCommandInteractionData `json:"data"`
-	GuildID   string                            `json:"guild_id"`
-	ChannelID string                            `json:"channel_id"`
+	ID        string          `json:"id"`
+	Type      InteractionType `json:"type"`
+	Data      InteractionData `json:"-"`
+	GuildID   string          `json:"guild_id"`
+	ChannelID string          `json:"channel_id"`
+
+	// The message on which interaction was used.
+	// NOTE: this field is only filled when the button click interaction triggered. Otherwise it will be nil.
+	Message *Message `json:"message"`
 
 	// The member who invoked this interaction.
 	// NOTE: this field is only filled when the slash command was invoked in a guild;
@@ -90,7 +96,64 @@ type Interaction struct {
 	Version int    `json:"version"`
 }
 
-// ApplicationCommandInteractionData contains data received in an interaction event.
+type interaction Interaction
+
+type rawInteraction struct {
+	interaction
+	Data json.RawMessage `json:"data"`
+}
+
+// UnmarshalJSON is a method for unmarshalling JSON object to Interaction.
+func (i *Interaction) UnmarshalJSON(raw []byte) (err error) {
+	var tmp rawInteraction
+	err = json.Unmarshal(raw, &tmp)
+	if err != nil {
+		return
+	}
+
+	*i = Interaction(tmp.interaction)
+
+	switch tmp.Type {
+	case InteractionApplicationCommand:
+		v := ApplicationCommandInteractionData{}
+		err = json.Unmarshal(tmp.Data, &v)
+		if err != nil {
+			return
+		}
+		i.Data = v
+	case InteractionMessageComponent:
+		v := MessageComponentInteractionData{}
+		err = json.Unmarshal(tmp.Data, &v)
+		if err != nil {
+			return
+		}
+		i.Data = v
+	}
+	return nil
+}
+
+// MessageComponentData is helper function to convert InteractionData to MessageComponentInteractionData.
+func (i Interaction) MessageComponentData() (data MessageComponentInteractionData) {
+	if i.Type != InteractionMessageComponent {
+		return
+	}
+	return i.Data.(MessageComponentInteractionData)
+}
+
+// ApplicationCommandData is helper function to convert InteractionData to ApplicationCommandInteractionData.
+func (i Interaction) ApplicationCommandData() (data ApplicationCommandInteractionData) {
+	if i.Type != InteractionApplicationCommand {
+		return
+	}
+	return i.Data.(ApplicationCommandInteractionData)
+}
+
+// InteractionData is a common interface for all types of interaction data.
+type InteractionData interface {
+	Type() InteractionType
+}
+
+// ApplicationCommandInteractionData contains the data of application command interaction.
 type ApplicationCommandInteractionData struct {
 	ID       string                                     `json:"id"`
 	Name     string                                     `json:"name"`
@@ -106,6 +169,22 @@ type ApplicationCommandInteractionDataResolved struct {
 	Members  map[string]*Member  `json:"members"`
 	Roles    map[string]*Role    `json:"roles"`
 	Channels map[string]*Channel `json:"channels"`
+}
+
+// Type returns the type of interaction data.
+func (ApplicationCommandInteractionData) Type() InteractionType {
+	return InteractionApplicationCommand
+}
+
+// MessageComponentInteractionData contains the data of message component interaction.
+type MessageComponentInteractionData struct {
+	CustomID      string        `json:"custom_id"`
+	ComponentType ComponentType `json:"component_type"`
+}
+
+// Type returns the type of interaction data.
+func (MessageComponentInteractionData) Type() InteractionType {
+	return InteractionMessageComponent
 }
 
 // ApplicationCommandInteractionDataOption represents an option of a slash command.
@@ -243,18 +322,23 @@ const (
 	InteractionResponseChannelMessageWithSource InteractionResponseType = 4
 	// InteractionResponseDeferredChannelMessageWithSource acknowledges that the event was received, and that a follow-up will come later.
 	InteractionResponseDeferredChannelMessageWithSource InteractionResponseType = 5
+	// InteractionResponseDeferredMessageUpdate acknowledges that the message component interaction event was received, and message will be updated later.
+	InteractionResponseDeferredMessageUpdate InteractionResponseType = 6
+	// InteractionResponseUpdateMessage is for updating the message to which message component was attached to.
+	InteractionResponseUpdateMessage InteractionResponseType = 7
 )
 
 // InteractionResponse represents a response for an interaction event.
 type InteractionResponse struct {
-	Type InteractionResponseType                    `json:"type,omitempty"`
-	Data *InteractionApplicationCommandResponseData `json:"data,omitempty"`
+	Type InteractionResponseType  `json:"type,omitempty"`
+	Data *InteractionResponseData `json:"data,omitempty"`
 }
 
-// InteractionApplicationCommandResponseData is response data for a slash command interaction.
-type InteractionApplicationCommandResponseData struct {
-	TTS             bool                    `json:"tts,omitempty"`
-	Content         string                  `json:"content,omitempty"`
+// InteractionResponseData is response data for an interaction.
+type InteractionResponseData struct {
+	TTS             bool                    `json:"tts"`
+	Content         string                  `json:"content"`
+	Components      []MessageComponent      `json:"components,omitempty"`
 	Embeds          []*MessageEmbed         `json:"embeds,omitempty"`
 	AllowedMentions *MessageAllowedMentions `json:"allowed_mentions,omitempty"`
 
