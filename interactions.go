@@ -29,15 +29,15 @@ type ApplicationCommandOptionType uint8
 
 // Application command option types.
 const (
-	ApplicationCommandOptionSubCommand = ApplicationCommandOptionType(iota + 1)
-	ApplicationCommandOptionSubCommandGroup
-	ApplicationCommandOptionString
-	ApplicationCommandOptionInteger
-	ApplicationCommandOptionBoolean
-	ApplicationCommandOptionUser
-	ApplicationCommandOptionChannel
-	ApplicationCommandOptionRole
-	ApplicationCommandOptionMentionable
+	ApplicationCommandOptionSubCommand      ApplicationCommandOptionType = 1
+	ApplicationCommandOptionSubCommandGroup ApplicationCommandOptionType = 2
+	ApplicationCommandOptionString          ApplicationCommandOptionType = 3
+	ApplicationCommandOptionInteger         ApplicationCommandOptionType = 4
+	ApplicationCommandOptionBoolean         ApplicationCommandOptionType = 5
+	ApplicationCommandOptionUser            ApplicationCommandOptionType = 6
+	ApplicationCommandOptionChannel         ApplicationCommandOptionType = 7
+	ApplicationCommandOptionRole            ApplicationCommandOptionType = 8
+	ApplicationCommandOptionMentionable     ApplicationCommandOptionType = 9
 )
 
 // ApplicationCommandOption represents an option/subcommand/subcommands group.
@@ -64,9 +64,9 @@ type InteractionType uint8
 
 // Interaction types
 const (
-	InteractionPing InteractionType = iota + 1
-	InteractionApplicationCommand
-	InteractionMessageComponent
+	InteractionPing               InteractionType = 1
+	InteractionApplicationCommand InteractionType = 2
+	InteractionMessageComponent   InteractionType = 3
 )
 
 // Interaction represents data of an interaction.
@@ -78,7 +78,7 @@ type Interaction struct {
 	ChannelID string          `json:"channel_id"`
 
 	// The message on which interaction was used.
-	// NOTE: this field is only filled when the button click interaction triggered. Otherwise it will be nil.
+	// NOTE: this field is only filled when a button click triggered the interaction. Otherwise it will be nil.
 	Message *Message `json:"message"`
 
 	// The member who invoked this interaction.
@@ -104,11 +104,11 @@ type rawInteraction struct {
 }
 
 // UnmarshalJSON is a method for unmarshalling JSON object to Interaction.
-func (i *Interaction) UnmarshalJSON(raw []byte) (err error) {
+func (i *Interaction) UnmarshalJSON(raw []byte) error {
 	var tmp rawInteraction
-	err = json.Unmarshal(raw, &tmp)
+	err := json.Unmarshal(raw, &tmp)
 	if err != nil {
-		return
+		return err
 	}
 
 	*i = Interaction(tmp.interaction)
@@ -118,33 +118,29 @@ func (i *Interaction) UnmarshalJSON(raw []byte) (err error) {
 		v := ApplicationCommandInteractionData{}
 		err = json.Unmarshal(tmp.Data, &v)
 		if err != nil {
-			return
+			return err
 		}
 		i.Data = v
 	case InteractionMessageComponent:
 		v := MessageComponentInteractionData{}
 		err = json.Unmarshal(tmp.Data, &v)
 		if err != nil {
-			return
+			return err
 		}
 		i.Data = v
 	}
 	return nil
 }
 
-// MessageComponentData is helper function to convert InteractionData to MessageComponentInteractionData.
+// MessageComponentData is helper function to assert the inner InteractionData to MessageComponentInteractionData.
+// Make sure to check that the Type of the interaction is InteractionMessageComponent before calling.
 func (i Interaction) MessageComponentData() (data MessageComponentInteractionData) {
-	if i.Type != InteractionMessageComponent {
-		return
-	}
 	return i.Data.(MessageComponentInteractionData)
 }
 
-// ApplicationCommandData is helper function to convert InteractionData to ApplicationCommandInteractionData.
+// ApplicationCommandData is helper function to assert the inner InteractionData to ApplicationCommandInteractionData.
+// Make sure to check that the Type of the interaction is InteractionApplicationCommand before calling.
 func (i Interaction) ApplicationCommandData() (data ApplicationCommandInteractionData) {
-	if i.Type != InteractionApplicationCommand {
-		return
-	}
 	return i.Data.(ApplicationCommandInteractionData)
 }
 
@@ -324,7 +320,7 @@ const (
 	InteractionResponseDeferredChannelMessageWithSource InteractionResponseType = 5
 	// InteractionResponseDeferredMessageUpdate acknowledges that the message component interaction event was received, and message will be updated later.
 	InteractionResponseDeferredMessageUpdate InteractionResponseType = 6
-	// InteractionResponseUpdateMessage is for updating the message to which message component was attached to.
+	// InteractionResponseUpdateMessage is for updating the message to which message component was attached.
 	InteractionResponseUpdateMessage InteractionResponseType = 7
 )
 
@@ -338,7 +334,7 @@ type InteractionResponse struct {
 type InteractionResponseData struct {
 	TTS             bool                    `json:"tts"`
 	Content         string                  `json:"content"`
-	Components      []MessageComponent      `json:"components,omitempty"`
+	Components      []MessageComponent      `json:"components"`
 	Embeds          []*MessageEmbed         `json:"embeds,omitempty"`
 	AllowedMentions *MessageAllowedMentions `json:"allowed_mentions,omitempty"`
 

@@ -11,10 +11,9 @@ import (
 
 // Bot parameters
 var (
-	GuildID   = flag.String("guild", "", "Test guild ID")
-	ChannelID = flag.String("channel", "", "Test channel ID")
-	BotToken  = flag.String("token", "", "Bot access token")
-	AppID     = flag.String("app", "", "Application ID")
+	GuildID  = flag.String("guild", "", "Test guild ID")
+	BotToken = flag.String("token", "", "Bot access token")
+	AppID    = flag.String("app", "", "Application ID")
 )
 
 var s *discordgo.Session
@@ -62,8 +61,8 @@ func main() {
 										Label:    "I don't know",
 										Style:    discordgo.LinkButton,
 										Disabled: false,
-										// Link buttons doesn't require CustomID and does not trigger the gateway/HTTP event
-										Link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+										// Link buttons don't require CustomID and do not trigger the gateway/HTTP event
+										URL: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 										Emoji: discordgo.ButtonEmoji{
 											Name: "🤷",
 										},
@@ -77,7 +76,7 @@ func main() {
 										Label:    "Discord Developers server",
 										Style:    discordgo.LinkButton,
 										Disabled: false,
-										Link:     "https://discord.gg/discord-developers",
+										URL:      "https://discord.gg/discord-developers",
 									},
 								},
 							},
@@ -106,7 +105,7 @@ func main() {
 		}
 
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			// Buttons also may update the message which they was attached to.
+			// Buttons also may update the message which to which they are attached.
 			// Or may just acknowledge (InteractionResponseDeferredMessageUpdate) that the event was received and not update the message.
 			// To update it later you need to use interaction response edit endpoint.
 			Type: discordgo.InteractionResponseUpdateMessage,
@@ -119,7 +118,7 @@ func main() {
 								Label:    "Our sponsor",
 								Style:    discordgo.LinkButton,
 								Disabled: false,
-								Link:     "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+								URL:      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 								Emoji: discordgo.ButtonEmoji{
 									Name: "💠",
 								},
@@ -145,7 +144,7 @@ func main() {
 	}
 	defer s.Close()
 
-	stop := make(chan os.Signal)
+	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
 	<-stop
 	log.Println("Graceful shutdown")
